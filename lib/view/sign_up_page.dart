@@ -24,6 +24,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final phoneNumberController = TextEditingController();
   final passwordController = TextEditingController();
   final parkingUnitIdController = TextEditingController();
+  final plateNumberController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -164,7 +165,18 @@ class _SignUpPageState extends State<SignUpPage> {
                                 return null;
                               },
                             )
-                          : Container(),
+                          : TextFormField(
+                              controller: plateNumberController,
+                              decoration: const InputDecoration(
+                                labelText: 'Plate Number',
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Plate Number is required';
+                                }
+                                return null;
+                              },
+                            ),
                       SizedBox(
                         height: 30,
                       ),
@@ -172,54 +184,43 @@ class _SignUpPageState extends State<SignUpPage> {
                         builder: (context, state) {
                           return ElevatedButtonStd(
                             onPressed: () async {
-
                               late UserCredential userCredential;
 
                               if (formKey.currentState!.validate()) {
                                 formKey.currentState!.save();
                                 print('Signing Up');
 
-                                try {
-                                   userCredential =
-                                      await authContext
-                                          .read<AuthBloc>()
-                                          .auth
-                                          .createUserWithEmailAndPassword(
-                                              email: emailController.text,
-                                              password:
-                                                  passwordController.text);
-                                } on FirebaseAuthException catch (e) {
-                                  if (e.code == 'weak-password') {
-                                    print('The password provided is too weak.');
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'The password provided is too weak.')));
-                                  } else if (e.code == 'email-already-in-use') {
-                                    print(
-                                        'The account already exists for that email.');
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'The account already exists for that email.')));
-                                  }
-                                } catch (e) {
-                                  print(e);
-                                }
-                                print('heeeere');
+                                await authContext
+                                    .read<AuthBloc>()
+                                    .auth
+                                    .createUserWithEmailAndPassword(
+                                        email: emailController.text.trim(),
+                                        password: passwordController.text).then((userCredential) {
 
-                                FirebaseDatabase.instance.ref().child('users/${userCredential.user!.uid}').update({
+                                  FirebaseDatabase.instance
+                                      .ref()
+                                      .child('users/${userCredential.user!.uid}')
+                                      .update({
                                     'first_name': firstNameController.text,
                                     'last_name': lastNameController.text,
-                                    'email': emailController.text,
+                                    'email': emailController.text.trim(),
                                     'phone': phoneNumberController.text,
                                     'password': passwordController.text,
                                     'is_unit_owner': isSelected[0],
-                                    'parking_unit_id': isSelected[0]
-                                        ? parkingUnitIdController.text : ""
-                                }).whenComplete(() {
-                                  Navigator.pushNamed(context, '/thankyou');
+                                    'plate_number': plateNumberController.text,
+                                    'parking_unit_id':
+                                    parkingUnitIdController.text
+                                  }).whenComplete(() {
+                                    Navigator.pushNamed(context, '/thankyou');
+                                  });
+
+
+                                }).catchError((e) {
+                                  print('Error');
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                       SnackBar(content: Text(e.toString())));
                                 });
+
                               }
                             },
                             child: const Text('Create Account'),

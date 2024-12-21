@@ -1,5 +1,7 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter/material.dart';
+import 'package:parking/bloc/app_bloc/app_bloc.dart';
 import 'package:parking/view/widgets/elevated_button_std.dart';
 
 
@@ -22,13 +24,21 @@ class ThankYouPage extends StatelessWidget {
             Transform.scale(
               scale: 2,
               child: Lottie.asset('assets/thankyou.json', height: 200,
-                width: 200,),
+                width: 200,
+                repeat: false,
+              ),
             ),
-            ElevatedButtonStd(
-              onPressed: () {
-                Navigator.pushNamed(context, '/map');
+            BlocBuilder<AppBloc, AppState>(
+              builder: (context, state) {
+                return ElevatedButtonStd(
+                  onPressed: () {
+                    context.read<AppBloc>()
+                      ..add(loadInitials());
+                    Navigator.pushNamed(context, '/map');
+                  },
+                  child: Text('Start'),
+                );
               },
-              child: Text('Start'),
             ),
           ],
         ),

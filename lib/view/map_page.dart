@@ -84,10 +84,32 @@ class MapPage extends StatelessWidget {
                                       .usersData!
                                       .child(uid.toString())
                                       .child('is_unit_owner')
-                                      .value !=
-                                  null
+                                      .value ==
+                                  true
                               ? "Unit Owner"
                               : "User"),
+                          context
+                              .read<AppBloc>()
+                              .usersData!
+                              .child(uid.toString())
+                              .child('is_unit_owner')
+                              .value ==
+                              true ? Container():Column(
+                            children: [
+                              Divider(),
+                              Text(
+                                'Plate Number',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Text(context
+                                  .read<AppBloc>()
+                                  .usersData!
+                                  .child(uid.toString())
+                                  .child('plate_number')
+                                  .value
+                                  .toString()),
+                            ],
+                          )
                           // Divider(),
 
                           // const SizedBox(height: 15),
