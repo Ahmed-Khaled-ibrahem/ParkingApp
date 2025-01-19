@@ -29,10 +29,6 @@ class BottomSheetDetail extends StatelessWidget {
 
                   return ListTile(
                     onTap: (){
-                      // context.read<AppBloc>().destination = LatLng(double.parse(lat.toString()), double.parse(lng.toString()));
-                      //
-                      // context.read<AppBloc>().add(NavigationStarted());
-
                       MapsLauncher.launchCoordinates(double.parse(lat.toString()),double.parse(lng.toString()));
                       Navigator.pop(context);
                     },
@@ -44,27 +40,35 @@ class BottomSheetDetail extends StatelessWidget {
                         .elementAt(index)
                         .key
                         .toString()),
-                    subtitle: FutureBuilder(
-                        future:
-                        placemarkFromCoordinates(
-                            double.parse(lat
-                                .toString()),
-                            double.parse(lng
-                                .toString())),
-                        builder: (context,
-                            snapshot) {
-                          if (snapshot
-                              .hasData) {
-                            return Text(
-                              snapshot
-                                  .data!
-                                  .first
-                                  .street ??
-                                  '',
-                            );
-                          }
-                          return Text('------');
-                        }),
+                    subtitle: SingleChildScrollView(
+                      child: FutureBuilder(
+                          future:
+                          placemarkFromCoordinates(
+                              double.parse(lat
+                                  .toString()),
+                              double.parse(lng
+                                  .toString())),
+                          builder: (context,
+                              snapshot) {
+                            if (snapshot
+                                .hasData) {
+                              return Text(
+                                snapshot
+                                    .data!
+                                    .first
+                                    .street ??
+                                    '',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                ),
+                                softWrap: true,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              );
+                            }
+                            return Text('------');
+                          }),
+                    ),
                     trailing: context
                         .read<AppBloc>()
                         .data!

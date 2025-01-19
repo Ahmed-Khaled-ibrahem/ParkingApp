@@ -1,4 +1,4 @@
-import 'package:lottie/lottie.dart' as lottie;
+
 import 'package:flutter/material.dart';
 import 'package:parking/bloc/app_bloc/app_bloc.dart';
 import 'package:parking/bloc/auth_bloc/auth_bloc.dart';
@@ -14,9 +14,11 @@ import 'package:url_launcher/url_launcher.dart';
 class MapPage extends StatelessWidget {
   MapPage({super.key});
 
+
+
   @override
   Widget build(BuildContext context) {
-    var uid = context.read<AuthBloc>().auth.currentUser!.uid;
+
 
     return BlocBuilder<AppBloc, AppState>(
       // bloc: BlocProvider.of<AppBloc>(context)..add(loadInitials()),
@@ -30,100 +32,9 @@ class MapPage extends StatelessWidget {
             appBar: AppBar(
               title: Text('ParkPro'),
               leading: TextButton(
-                onPressed: () => showDialog<String>(
-                  context: context,
-                  builder: (BuildContext context) => Dialog(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          Transform.scale(
-                            scale: 1.1,
-                            child: lottie.Lottie.asset(
-                              'assets/pro.json',
-                              height: 100,
-                              width: 100,
-                            ),
-                          ),
-                          Text(
-                            "${context.read<AppBloc>().usersData!.child(uid.toString()).child('first_name').value.toString()} ${context.read<AppBloc>().usersData!.child(uid.toString()).child('last_name').value.toString()}",
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          Divider(),
-
-                          Text(
-                            'Email',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(context
-                              .read<AuthBloc>()
-                              .auth
-                              .currentUser!
-                              .email!),
-                          Divider(),
-                          Text(
-                            'Phone',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(context
-                              .read<AppBloc>()
-                              .usersData!
-                              .child(uid.toString())
-                              .child('phone')
-                              .value
-                              .toString()),
-                          Divider(),
-                          Text(
-                            'Account Type',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(context
-                                      .read<AppBloc>()
-                                      .usersData!
-                                      .child(uid.toString())
-                                      .child('is_unit_owner')
-                                      .value ==
-                                  true
-                              ? "Unit Owner"
-                              : "User"),
-                          context
-                              .read<AppBloc>()
-                              .usersData!
-                              .child(uid.toString())
-                              .child('is_unit_owner')
-                              .value ==
-                              true ? Container():Column(
-                            children: [
-                              Divider(),
-                              Text(
-                                'Plate Number',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(context
-                                  .read<AppBloc>()
-                                  .usersData!
-                                  .child(uid.toString())
-                                  .child('plate_number')
-                                  .value
-                                  .toString()),
-                            ],
-                          )
-                          // Divider(),
-
-                          // const SizedBox(height: 15),
-                          // TextButton(
-                          //   onPressed: () {
-                          //     Navigator.pop(context);
-                          //   },
-                          //   child: const Text('Okay'),
-                          // ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                onPressed: () {
+                  Navigator.pushNamed(context, '/profile');
+                },
                 child: const Icon(Icons.person),
               ),
               centerTitle: true,
@@ -137,8 +48,12 @@ class MapPage extends StatelessWidget {
                       ),
                       onPressed: () async {
                         await authContext.read<AuthBloc>().auth.signOut();
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                        await context.read<AppBloc>().serviceStatusStream.cancel();
+                        Navigator.of(context)
+                            .popUntil((route) => route.isFirst);
+                        await context
+                            .read<AppBloc>()
+                            .serviceStatusStream
+                            .cancel();
                         // Navigator.pushNamed(context, '/login');
                       },
                     );
@@ -253,17 +168,23 @@ class MapPage extends StatelessWidget {
                                                         fontWeight:
                                                             FontWeight.bold),
                                                   ),
-                                                  Text(e.child('status').value ==
-                                                          1
-                                                      ? "Available"
-                                                      : "Busy"),
+                                                  Text(
+                                                      e.child('status').value ==
+                                                              1
+                                                          ? "Available"
+                                                          : "Busy"),
                                                   // Divider(),
 
                                                   const SizedBox(height: 15),
                                                   ElevatedButtonStd(
                                                     onPressed: () async {
                                                       Navigator.pop(context);
-                                                      MapsLauncher.launchCoordinates(double.parse(lat.toString()),double.parse(lng.toString()));
+                                                      MapsLauncher
+                                                          .launchCoordinates(
+                                                              double.parse(lat
+                                                                  .toString()),
+                                                              double.parse(lng
+                                                                  .toString()));
                                                     },
                                                     child:
                                                         const Text('Navigate'),

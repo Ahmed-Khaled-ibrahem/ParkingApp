@@ -4,6 +4,7 @@ import 'package:parking/bloc/auth_bloc/auth_bloc.dart';
 import 'package:parking/view/home_page.dart';
 import 'package:parking/view/login_page.dart';
 import 'package:parking/view/map_page.dart';
+import 'package:parking/view/profile_view.dart';
 import 'package:parking/view/sign_up_page.dart';
 import 'package:parking/view/thank_you_page.dart';
 import 'bloc/app_bloc/app_bloc.dart';
@@ -49,6 +50,7 @@ class MyApp extends StatelessWidget {
           '/login': (context) => LoginPage(),
           '/signup': (context) => SignUpPage(),
           '/thankyou': (context) => ThankYouPage(),
+          '/profile': (context) => ProfileView(),
         },
       ),
     );

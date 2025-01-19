@@ -80,6 +80,14 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     });
     return null;
   }
+  setValues(String userId, String firstName, String lastName, String phone, String? plate) async{
+    await ref.child('users').child(userId).update({
+      'first_name': firstName,
+      'last_name': lastName,
+      'phone': phone,
+      'plate_number': plate
+    });
+  }
 
   Future<void> getCurrentLocation() async {
     bool serviceEnabled;
