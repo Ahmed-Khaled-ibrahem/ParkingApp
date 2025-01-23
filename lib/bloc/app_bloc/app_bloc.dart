@@ -9,8 +9,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:parking/model/line_string.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:workmanager/workmanager.dart';
 import '../../repo/network.dart';
+
 part 'app_event.dart';
+
 part 'app_state.dart';
 
 class AppBloc extends Bloc<AppEvent, AppState> {
@@ -30,27 +33,31 @@ class AppBloc extends Bloc<AppEvent, AppState> {
   List<LatLng> polyPoints = [];
   Set<Polyline> polyLines = {};
 
-  late StreamSubscription<Position> serviceStatusStream ;
-
+  late StreamSubscription<Position> serviceStatusStream;
 
   AppBloc() : super(AppInitial()) {
-    on<AppEvent>((event, emit) {
-    });
+    on<AppEvent>((event, emit) {});
 
     on<loadInitials>((event, emit) async {
       await getCurrentLocation();
       print('done');
       await read_values();
       emit(MyLocationLoaded());
+      ref.onValue.listen((event) async {
+        await read_values();
+        add(Updater());
+      });
     });
 
     on<StartButtonOnPressed>((event, emit) async {
-         serviceStatusStream = Geolocator.getPositionStream().listen((Position status) async {
-          print("location position changed");
-          print(status);
-          await getCurrentLocation();
-          add(Updater());
-        });
+      // in release make it un commented
+      // serviceStatusStream =
+      //     Geolocator.getPositionStream().listen((Position status) async {
+      //       print("location position changed");
+      //       print(status);
+      //       await getCurrentLocation();
+      //       add(Updater());
+      //     });
     });
 
     on<NavigationStarted>((event, emit) async {
@@ -61,7 +68,8 @@ class AppBloc extends Bloc<AppEvent, AppState> {
 
     on<Updater>((event, emit) async {
       print("updating");
-      emit(state);
+      emit(Refresh1());
+      emit(Refresh2());
     });
 
     on<CloseNavigation>((event, emit) async {
@@ -74,18 +82,92 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     await ref.get().then((value) {
       data = value.child('hardware');
       usersData = value.child('users');
-      print(data?.children.length);
-      print(data?.children.first.children.map((value) => value.value));
+      add(Updater());
       return data;
     });
     return null;
   }
-  setValues(String userId, String firstName, String lastName, String phone, String? plate) async{
-    await ref.child('users').child(userId).update({
-      'first_name': firstName,
-      'last_name': lastName,
-      'phone': phone,
-      'plate_number': plate
+
+  Future setValues(String userId, String firstName, String lastName,
+      String phone, String? number) async {
+    bool isUnitOwner = usersData!
+        .child(userId.toString())
+        .child('is_unit_owner')
+        .value as bool;
+    String currentFirstName = usersData!
+        .child(userId.toString())
+        .child('first_name')
+        .value
+        .toString();
+    String currentLastName =
+        usersData!.child(userId.toString()).child('last_name').value.toString();
+    String currentPhone =
+        usersData!.child(userId.toString()).child('phone').value.toString();
+    String currentNumber = isUnitOwner
+        ? usersData!
+            .child(userId.toString())
+            .child('parking_unit_id')
+            .value
+            .toString()
+        : usersData!
+            .child(userId.toString())
+            .child('plate_number')
+            .value
+            .toString();
+
+    if (currentFirstName != firstName ||
+        currentLastName != lastName ||
+        currentPhone != phone ||
+        currentNumber != number) {
+      if (isUnitOwner) {
+        await ref.child('users').child(userId).update({
+          'first_name': firstName,
+          'last_name': lastName,
+          'phone': phone,
+          'parking_unit_id': number,
+          'verified': false
+        });
+      } else {
+        await ref.child('users').child(userId).update({
+          'first_name': firstName,
+          'last_name': lastName,
+          'phone': phone,
+          'plate_number': number
+        });
+      }
+    } else {
+      print('no change');
+    }
+  }
+
+  setVerified(String userId) async {
+    await ref.child('users').child(userId).update({'verified': true});
+  }
+
+  setHardwareLocation(String HardId, double lat, double lng) async {
+    await ref
+        .child('hardware')
+        .child(HardId)
+        .update({'lat': lat, 'lng': lng}).then((d) {
+      read_values();
+    });
+  }
+
+  setHardwarePublic(String HardId) async {
+    await ref
+        .child('hardware')
+        .child(HardId)
+        .update({'is_public': true}).then((d) {
+      read_values();
+    });
+  }
+
+  setHardwarePrivate(String HardId) async {
+    await ref
+        .child('hardware')
+        .child(HardId)
+        .update({'is_public': false}).then((d) {
+      read_values();
     });
   }
 
@@ -145,5 +227,52 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     } catch (e) {
       print(e);
     }
+  }
+
+  void scheduleEmail(String Target) {
+    Workmanager().registerOneOffTask(
+      "sendEmailTask",
+      "sendEmailTask",
+      initialDelay: Duration(minutes: 9,seconds: 30),
+      inputData: <String, dynamic>{
+        "target": Target
+      },
+    );
+  }
+
+  void bookParkingUnit(String userId, String parkingUnitId) async {
+    bool? isPublic = data!.child(parkingUnitId).child('is_public').value as bool?;
+    if(isPublic == true || isPublic == null){
+      await ref.child('hardware').child(parkingUnitId).update({
+        'booked': {
+          'by': userId,
+          'until': DateTime.now().add(Duration(minutes: 10)).toIso8601String()
+        }
+      });
+      scheduleEmail(usersData!.child(userId).child('email').value.toString());
+    }
+    else{
+      await ref.child('hardware').child(parkingUnitId).child('waiting').get().then((value) {
+        if(value.value != null){
+          ref.child('hardware').child(parkingUnitId).update({
+            'waiting': [...(value.value as List), userId],
+          });
+        }
+        else{
+           ref.child('hardware').child(parkingUnitId).update({
+            'waiting': [userId],
+          });
+        }
+      });
+    }
+  }
+  acceptedBook(String userId, String parkingUnitId) async {
+    await ref.child('hardware').child(parkingUnitId).update({
+      'booked': {
+        'by': userId,
+        'until': DateTime.now().add(Duration(minutes: 10)).toIso8601String()
+      }
+    });
+    scheduleEmail(usersData!.child(userId).child('email').value.toString());
   }
 }

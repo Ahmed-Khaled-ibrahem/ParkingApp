@@ -43,13 +43,6 @@ class _SignUpPageState extends State<SignUpPage> {
                   key: formKey,
                   child: Column(
                     children: [
-                      // Transform.scale(
-                      //   scale: 1.5,
-                      //   child: Lottie.asset('assets/signup.json', height: 100,
-                      //     width: 100,
-                      //     // frameRate: FrameRate(500),
-                      //   ),
-                      // ),
                       ToggleButtons(
                         onPressed: (int index) {
                           setState(() {
@@ -130,12 +123,17 @@ class _SignUpPageState extends State<SignUpPage> {
                       ),
                       TextFormField(
                         controller: phoneNumberController,
+                        keyboardType: TextInputType.phone,
+                        maxLength: 11,
                         decoration: const InputDecoration(
                           labelText: 'Phone',
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Phone is required';
+                          }
+                          if (value.length < 10) {
+                            return 'Phone must be at least 10 digits';
                           }
                           return null;
                         },
@@ -148,6 +146,9 @@ class _SignUpPageState extends State<SignUpPage> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Password is required';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
                           }
                           return null;
                         },
@@ -208,13 +209,12 @@ class _SignUpPageState extends State<SignUpPage> {
                                     'password': passwordController.text,
                                     'is_unit_owner': isSelected[0],
                                     'plate_number': plateNumberController.text,
+                                    'verified': false,
                                     'parking_unit_id':
                                     parkingUnitIdController.text
                                   }).whenComplete(() {
                                     Navigator.pushNamed(context, '/thankyou');
                                   });
-
-
                                 }).catchError((e) {
                                   print('Error');
                                   ScaffoldMessenger.of(context).showSnackBar(

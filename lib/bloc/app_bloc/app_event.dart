@@ -28,3 +28,7 @@ class Updater extends AppEvent {
   @override
   List<Object?> get props => [];
 }
+class Updater2 extends AppEvent {
+  @override
+  List<Object?> get props => [];
+}

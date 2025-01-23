@@ -37,3 +37,11 @@ class LocationUpdated extends AppState { // working
  @override
  List<Object> get props => [];
 }
+class Refresh1 extends AppState { // working
+ @override
+ List<Object> get props => [];
+}
+class Refresh2 extends AppState { // working
+ @override
+ List<Object> get props => [];
+}
