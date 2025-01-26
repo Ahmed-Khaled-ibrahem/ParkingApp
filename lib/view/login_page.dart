@@ -86,9 +86,8 @@ class _LoginPageState extends State<LoginPage> {
                                         email: emailController.text,
                                         password: passwordController.text)
                                     .then((credential) {
-                                  context.read<AppBloc>()
-                                    ..add(loadInitials());
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                  context.read<AppBloc>()..add(loadInitials());
+                                  ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                           content: Text(
                                               'Welcome ${AppContext.read<AppBloc>().usersData!.child(credential.user!.uid).child('first_name').value}')));

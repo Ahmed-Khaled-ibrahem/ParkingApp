@@ -192,15 +192,12 @@ class _MapPageState extends State<MapPage> {
                         FlutterMap(
                           options: MapOptions(
                               initialZoom: 15.0,
-                              initialCenter:
-                                  context.read<AppBloc>().currentLocation ??
-                                      LatLng(35.2003774, 29.9513856),
+                              initialCenter: context.read<AppBloc>().currentLocation ?? LatLng(35.2003774, 29.9513856),
                               onLongPress: (context2, point) {
                                 if (isBoth) {
                                   setState(() {
                                     selectedLocation = point;
                                   });
-                                  print(point);
                                 }
                               }),
                           children: [
@@ -213,8 +210,7 @@ class _MapPageState extends State<MapPage> {
                             MarkerLayer(
                               markers: [
                                 Marker(
-                                  point:
-                                      context.read<AppBloc>().currentLocation!,
+                                  point: context.read<AppBloc>().currentLocation!,
                                   width: 40.0,
                                   height: 40.0,
                                   child: Icon(
@@ -235,10 +231,58 @@ class _MapPageState extends State<MapPage> {
                                             showDialog(
                                               context: context,
                                               builder: (BuildContext context) {
+                                                List<String> devicesIds = context
+                                                    .read<
+                                                    AppBloc>()
+                                                    .usersData!
+                                                    .child(context
+                                                    .read<
+                                                    AuthBloc>()
+                                                    .auth
+                                                    .currentUser!
+                                                    .uid
+                                                    .toString())
+                                                    .child(
+                                                    'parking_unit_id')
+                                                    .value
+                                                    .toString().split(',');
+
                                                 return AlertDialog(
-                                                  title:
-                                                      Text('Confirm Location'),
-                                                  content: Text('Do you want to set this as your own unit Location?'),
+                                                  title: Text('Confirm Location'),
+                                                  content: SizedBox(
+                                                    width: 300,
+                                                    height: 300,
+                                                    child: Column(
+                                                      children: [
+                                                        Text('Please select your Unit'),
+                                                        Divider(),
+                                                        ListView.separated(
+                                                          separatorBuilder: (context, index) => Divider(),
+                                                          shrinkWrap: true,
+                                                          itemCount: devicesIds.length,
+                                                          itemBuilder: (BuildContext context, int index) {
+                                                            return  ListTile(
+                                                              title: Text(devicesIds[index].trim()),
+                                                              leading: Icon(Icons.location_on),
+                                                              onTap: () {
+                                                                setState(() {
+                                                                  context.read<AppBloc>().setHardwareLocation(
+                                                                      devicesIds[index].trim(),
+                                                                      selectedLocation!
+                                                                          .latitude,
+                                                                      selectedLocation!
+                                                                          .longitude);
+                                                                });
+                                                                selectedLocation = null;
+                                                                Navigator.of(context).pop();
+                                                              },
+                                                            );
+                                                          },
+                                                          ),
+                                                        Divider()
+                                                      ],
+                                                    ),
+                                                  ),
                                                   actions: <Widget>[
                                                     TextButton(
                                                       child: Text('Cancel'),
@@ -247,37 +291,6 @@ class _MapPageState extends State<MapPage> {
                                                         setState(() {
                                                           selectedLocation = null;
                                                         });
-                                                      },
-                                                    ),
-                                                    TextButton(
-                                                      child: Text('Confirm'),
-                                                      onPressed: () {
-                                                        // Add code to set this location as your own point
-                                                        setState(() {
-                                                          context.read<AppBloc>().setHardwareLocation(
-                                                              context
-                                                                  .read<
-                                                                      AppBloc>()
-                                                                  .usersData!
-                                                                  .child(context
-                                                                      .read<
-                                                                          AuthBloc>()
-                                                                      .auth
-                                                                      .currentUser!
-                                                                      .uid
-                                                                      .toString())
-                                                                  .child(
-                                                                      'parking_unit_id')
-                                                                  .value
-                                                                  .toString(),
-                                                              selectedLocation!
-                                                                  .latitude,
-                                                              selectedLocation!
-                                                                  .longitude);
-                                                        });
-                                                        selectedLocation = null;
-                                                        Navigator.of(context)
-                                                            .pop();
                                                       },
                                                     ),
                                                   ],
@@ -377,21 +390,14 @@ class _MapPageState extends State<MapPage> {
                                                     // Divider(),
                                                     const SizedBox(height: 15),
                                                     Builder(builder: (context) {
-                                                      if (e.key.toString() ==
-                                                          context
-                                                              .read<AppBloc>()
-                                                              .usersData!
-                                                              .child(context
-                                                                  .read<
-                                                                      AuthBloc>()
-                                                                  .auth
-                                                                  .currentUser!
-                                                                  .uid
-                                                                  .toString())
-                                                              .child(
-                                                                  'parking_unit_id')
-                                                              .value
-                                                              .toString()) {
+
+                                                      var myID = context.read<AuthBloc>().auth.currentUser!.uid.toString();
+                                                      var espID = e.key.toString();
+                                                      List alldevices = context.read<AppBloc>().usersData!.child(myID).child('parking_unit_id').value.toString().split(',');
+
+                                                      bool isMine = alldevices.any((e) => e.trim() == espID);
+
+                                                      if (isMine) {
                                                         if (isBoth) {
                                                           return Row(
                                                             mainAxisAlignment:
@@ -574,5 +580,4 @@ class _MapPageState extends State<MapPage> {
       },
     );
   }
-
 }

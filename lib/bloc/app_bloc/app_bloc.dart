@@ -144,6 +144,11 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     await ref.child('users').child(userId).update({'verified': true});
   }
 
+  add_verified_device(String userId, String deviceID) async{
+    await ref.child('users').child(userId).child('verified_list').update({deviceID: true});
+  }
+
+
   setHardwareLocation(String HardId, double lat, double lng) async {
     await ref
         .child('hardware')
@@ -229,50 +234,72 @@ class AppBloc extends Bloc<AppEvent, AppState> {
     }
   }
 
-  void scheduleEmail(String Target) {
+  void scheduleEmail(String Target, String Content, bool isDelayed) {
     Workmanager().registerOneOffTask(
       "sendEmailTask",
       "sendEmailTask",
-      initialDelay: Duration(minutes: 9,seconds: 30),
-      inputData: <String, dynamic>{
-        "target": Target
-      },
+      initialDelay:
+          isDelayed ? Duration(minutes: 9, seconds: 30) : Duration(seconds: 1),
+      inputData: <String, dynamic>{"target": Target, "content": Content},
     );
   }
 
   void bookParkingUnit(String userId, String parkingUnitId) async {
-    bool? isPublic = data!.child(parkingUnitId).child('is_public').value as bool?;
-    if(isPublic == true || isPublic == null){
+    bool? isPublic =
+        data!.child(parkingUnitId).child('is_public').value as bool?;
+
+    scheduleEmail(
+        usersData!.child(userId).child('email').value.toString(),
+        'Your Parking Unit has been Booked Successfully.\n\nthank you\nSmart Parking team',
+        false);
+
+    if (isPublic == true || isPublic == null) {
       await ref.child('hardware').child(parkingUnitId).update({
         'booked': {
           'by': userId,
           'until': DateTime.now().add(Duration(minutes: 10)).toIso8601String()
         }
       });
-      scheduleEmail(usersData!.child(userId).child('email').value.toString());
-    }
-    else{
-      await ref.child('hardware').child(parkingUnitId).child('waiting').get().then((value) {
-        if(value.value != null){
+      scheduleEmail(
+          usersData!.child(userId).child('email').value.toString(),
+          "Hey! This is alert that your booking is expired.\nyou can try to book again\n\nthank you\nSmart Parking team",
+          true);
+    } else {
+      await ref
+          .child('hardware')
+          .child(parkingUnitId)
+          .child('waiting')
+          .get()
+          .then((value) {
+        if (value.value != null) {
           ref.child('hardware').child(parkingUnitId).update({
             'waiting': [...(value.value as List), userId],
           });
-        }
-        else{
-           ref.child('hardware').child(parkingUnitId).update({
+        } else {
+          ref.child('hardware').child(parkingUnitId).update({
             'waiting': [userId],
           });
         }
       });
     }
   }
+
   acceptedBook(String userId, String parkingUnitId) async {
+
+    scheduleEmail(
+        usersData!.child(userId).child('email').value.toString(),
+        "Congratulations! Your booking has been accepted.\n\nthank you\nSmart Parking team",
+        false);
+
     await ref.child('hardware').child(parkingUnitId).update({
       'booked': {
         'by': userId,
         'until': DateTime.now().add(Duration(minutes: 10)).toIso8601String()
       }
     });
-    scheduleEmail(usersData!.child(userId).child('email').value.toString());
+    scheduleEmail(
+        usersData!.child(userId).child('email').value.toString(),
+        "Hey! This is alert that your booking is expired.\nyou can try to book again\n\nthank you\nSmart Parking team",
+        true);
   }
 }

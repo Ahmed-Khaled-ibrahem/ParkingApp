@@ -28,7 +28,7 @@ void callbackDispatcher() {
       ..from = Address(username, 'Smart Parking App')
       ..recipients.add(inputData!['target'])
       ..subject = 'Smart Parking Alert :: 😀 :: ${DateTime.now()}'
-      ..text = 'Hey! This is alert that your booking is expired.\nyou can try to book again\n\nthank you\nSmart Parking team';
+      ..text = inputData['content'];
 
     try {
       final sendReport = await send(message, smtpServer).catchError((e,s){

@@ -1,12 +1,9 @@
-
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:maps_launcher/maps_launcher.dart';
 import 'package:parking/bloc/app_bloc/app_bloc.dart';
-
 import '../bloc/auth_bloc/auth_bloc.dart';
 
 class BottomSheetDetail extends StatefulWidget {
@@ -45,7 +42,7 @@ class _BottomSheetDetailState extends State<BottomSheetDetail> {
                     var lat = context.read<AppBloc>().data!.children.elementAt(index).child("lat").value ?? 0;
                     var lng = context.read<AppBloc>().data!.children.elementAt(index).child('lng').value ?? 0;
                     var deviceId = context.read<AppBloc>().data!.children.elementAt(index).key.toString();
-                    var myDeviceId = context.read<AppBloc>().usersData!.child(context.read<AuthBloc>().auth.currentUser!.uid.toString()).child('parking_unit_id').value.toString();
+                    var myDeviceIds = context.read<AppBloc>().usersData!.child(context.read<AuthBloc>().auth.currentUser!.uid.toString()).child('parking_unit_id').value.toString().split(',');
                     bool verified = context.read<AppBloc>().usersData!.child(context.read<AuthBloc>().auth.currentUser!.uid.toString()).child('verified').value as bool;
 
                     return ListTile(
@@ -55,11 +52,15 @@ class _BottomSheetDetailState extends State<BottomSheetDetail> {
                       },
                       leading: Icon(Icons.local_parking),
                       title: Builder(builder: (context) {
+
+                        bool isMine = myDeviceIds.any((e) => e.trim() == deviceId);
+
                         if(verified){
-                          if(deviceId == myDeviceId){
+                          if(isMine){
                             return Text(deviceId + ' (MY UNIT)',style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),);
                           }
                         }
+
                         bool? isPublic = context.read<AppBloc>().data!.children.elementAt(index).child('is_public').value as bool?;
                         if(isPublic == null){
                           return Text(deviceId + ' (PUBLIC)');
@@ -107,7 +108,7 @@ class _BottomSheetDetailState extends State<BottomSheetDetail> {
                               .elementAt(index)
                               .child('status')
                               .value
-                              == 1;
+                              == 0;
 
                           var Booked = context
                               .read<AppBloc>()
@@ -131,8 +132,7 @@ class _BottomSheetDetailState extends State<BottomSheetDetail> {
                           }
 
                           if(Booked.value != null){
-                             var until = Booked.child('until').value.toString();
-
+                            var until = Booked.child('until').value.toString();
                             var now = DateTime.now();
                             var untilDateTime = DateTime.parse(until);
                             var differenceInSeconds = untilDateTime.difference(now).inSeconds;

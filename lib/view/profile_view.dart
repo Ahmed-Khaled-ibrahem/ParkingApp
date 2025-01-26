@@ -1,6 +1,7 @@
 import 'package:lottie/lottie.dart' as lottie;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:parking/view/widgets/verficationDialog.dart';
 import '../bloc/app_bloc/app_bloc.dart';
 import '../bloc/auth_bloc/auth_bloc.dart';
 
@@ -16,7 +17,6 @@ class _ProfileViewState extends State<ProfileView> {
   TextEditingController lastNameController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
   TextEditingController numberController = TextEditingController();
-
 
   @override
   void initState() {
@@ -84,64 +84,8 @@ class _ProfileViewState extends State<ProfileView> {
                           showDialog(
                               context: context,
                               builder: (context) {
-                                var passwordController =
-                                    TextEditingController();
-                                return AlertDialog(
-                                  title: Text('Enter Unit Password KEY'),
-                                  content: TextField(
-                                    controller: passwordController,
-                                    obscureText: true,
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                        onPressed: () {
-                                          Navigator.of(context).pop();
-                                        },
-                                        child: Text('Cancel')),
-                                    TextButton(
-                                        onPressed: () async {
-                                          String enteredPassword =
-                                              passwordController.text
-                                                  .toString();
-                                          String password = context
-                                              .read<AppBloc>()
-                                              .data!
-                                              .child(deviceID)
-                                              .child('pass')
-                                              .value
-                                              .toString();
-                                          print(enteredPassword);
-                                          print(password);
-
-                                          if (password == enteredPassword) {
-                                            context.read<AppBloc>().setVerified(
-                                                context
-                                                    .read<AuthBloc>()
-                                                    .auth
-                                                    .currentUser!
-                                                    .uid);
-
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(SnackBar(
-                                                    content: Text(
-                                                        "your account is verified")));
-
-                                            await context
-                                                .read<AppBloc>()
-                                                .read_values();
-                                            Navigator.of(context).pop();
-                                            setState(() {});
-                                          } else {
-                                            ScaffoldMessenger.of(context)
-                                                .showSnackBar(SnackBar(
-                                                    content: Text(
-                                                        "Wrong Password")));
-                                            Navigator.of(context).pop();
-                                          }
-                                        },
-                                        child: Text('OK'))
-                                  ],
-                                );
+                                return verificationDialog(context, deviceID, (){setState(() {
+                                });});
                               });
                         }
                       },
@@ -263,6 +207,7 @@ class _ProfileViewState extends State<ProfileView> {
                   ),
                   TextField(
                     controller: phoneController,
+                    maxLength: 11,
                     decoration: const InputDecoration(
                       labelText: 'Phone Number',
                       border: OutlineInputBorder(),
@@ -271,19 +216,19 @@ class _ProfileViewState extends State<ProfileView> {
                   SizedBox(
                     height: 10,
                   ),
-
                   Builder(builder: (context) {
-                    if(context
-                        .read<AppBloc>()
-                        .usersData!
-                        .child(uid.toString())
-                        .child('is_unit_owner')
-                        .value ==
-                        true){
+                    if (context
+                            .read<AppBloc>()
+                            .usersData!
+                            .child(uid.toString())
+                            .child('is_unit_owner')
+                            .value ==
+                        true) {
                       return TextField(
                         controller: numberController,
                         decoration: const InputDecoration(
                           labelText: 'Unit Number',
+                          counterText: "Comma Separated for Multiple Units",
                           border: OutlineInputBorder(),
                         ),
                       );

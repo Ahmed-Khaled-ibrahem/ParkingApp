@@ -158,6 +158,7 @@ class _SignUpPageState extends State<SignUpPage> {
                               controller: parkingUnitIdController,
                               decoration: const InputDecoration(
                                 labelText: 'Parking Unit ID',
+                                counterText: "Comma Separated for Multiple Units",
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -210,8 +211,7 @@ class _SignUpPageState extends State<SignUpPage> {
                                     'is_unit_owner': isSelected[0],
                                     'plate_number': plateNumberController.text,
                                     'verified': false,
-                                    'parking_unit_id':
-                                    parkingUnitIdController.text
+                                    'parking_unit_id': parkingUnitIdController.text
                                   }).whenComplete(() {
                                     Navigator.pushNamed(context, '/thankyou');
                                   });
