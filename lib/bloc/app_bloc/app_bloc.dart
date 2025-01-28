@@ -302,4 +302,8 @@ class AppBloc extends Bloc<AppEvent, AppState> {
         "Hey! This is alert that your booking is expired.\nyou can try to book again\n\nthank you\nSmart Parking team",
         true);
   }
+
+  Future deleteHardware(String id) async {
+    await ref.child('hardware').child(id).remove();
+  }
 }

@@ -69,7 +69,9 @@ class _BottomSheetDetailState extends State<BottomSheetDetail> {
                           return Text(deviceId + ' (Private)');
                         }
                         return Text(deviceId + ' (PUBLIC)');
-                      }),
+                      }
+
+                      ),
                       subtitle: SingleChildScrollView(
                         child: FutureBuilder(
                             future:

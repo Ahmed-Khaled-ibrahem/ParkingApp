@@ -17,7 +17,7 @@ class ElevatedButtonStd extends StatelessWidget {
         child: child,
         style: ElevatedButton.styleFrom(
           elevation: 0.5,
-          backgroundColor: const Color(0xFFE53935),
+          backgroundColor:  Colors.blue,
           foregroundColor: const Color(0xFFFFFFFF),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),

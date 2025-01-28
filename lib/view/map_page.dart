@@ -1,4 +1,6 @@
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_email_sender/flutter_email_sender.dart';
 import 'package:mailer/mailer.dart';
@@ -36,7 +38,7 @@ class _MapPageState extends State<MapPage> {
         return PopScope(
           canPop: true,
           onPopInvokedWithResult: (didPop, result) async {
-            await context.read<AppBloc>().serviceStatusStream.cancel();
+            // await context.read<AppBloc>().serviceStatusStream.cancel();
           },
           child: Scaffold(
             appBar: AppBar(
@@ -51,30 +53,25 @@ class _MapPageState extends State<MapPage> {
               actions: [
                 Builder(builder: (context) {
                   if (context.read<AppBloc>().usersData != null) {
-                    String parkingUnitId = context
-                        .read<AppBloc>()
-                        .usersData!
-                        .child(context
-                            .read<AuthBloc>()
-                            .auth
-                            .currentUser!
-                            .uid
-                            .toString())
-                        .child('parking_unit_id')
-                        .value
-                        .toString();
-                    List? waiting = context
-                        .read<AppBloc>()
-                        .data!
-                        .child(parkingUnitId)
-                        .child('waiting')
-                        .value as List?;
-                    if (waiting != null && waiting.isNotEmpty) {
+                    bool verified = context.read<AppBloc>().usersData!.child(context.read<AuthBloc>().auth.currentUser!.uid.toString()).child('verified').value as bool;
+                    if(!verified){ return Container();}
+                    List<String> parkingUnitIds = context.read<AppBloc>().usersData!.child(
+                        context.read<AuthBloc>().auth.currentUser!.uid.toString())
+                        .child('parking_unit_id').value.toString().split(',');
+
+                    List<Map<String, List>> waiting = [];
+
+                    parkingUnitIds.forEach((element){
+                      List? dd = context.read<AppBloc>().data!.child(element.trim()).child('waiting').value as List?;
+                      List<Map<String, List>> more_waiting = [{element.toString() : dd??[]}];
+                     if(more_waiting.isNotEmpty){
+                       waiting.addAll(more_waiting);
+                     }
+                    });
+
+                    if (waiting.isNotEmpty) {
                       return IconButton(
-                        icon: Icon(
-                          Icons.notification_important,
-                          color: Colors.deepOrange,
-                        ),
+                        icon: Icon(Icons.notification_important, color: Colors.deepOrange,),
                         onPressed: () {
                           showDialog(
                             context: context,
@@ -88,34 +85,54 @@ class _MapPageState extends State<MapPage> {
                                       shrinkWrap: true,
                                       itemCount: waiting.length,
                                       itemBuilder: (context, index) {
-                                        String? name = context
-                                            .read<AppBloc>().usersData!
-                                            .child(waiting[index])
-                                            .child('first_name').value as String?;
+                                        Map<String, List> my_map = waiting[index];
+                                        String parkingUnitId = waiting[index].keys.toList()[0];
+                                        List? list_of_users = my_map[parkingUnitId];
 
-                                        return ListTile(
-                                            title: Text(name ?? "User"),
-                                            trailing: ElevatedButton.icon(
-                                              onPressed: () {
-                                                context.read<AppBloc>().acceptedBook(waiting[index], parkingUnitId);
+                                        if(list_of_users == null || list_of_users.isEmpty){
+                                          return Container();
+                                        }
+                                        return Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text("Device ID : "),
+                                                Text(parkingUnitId),
+                                              ],
+                                            ),
+                                            ListView.builder(
+                                              shrinkWrap: true,
+                                              itemCount: list_of_users.length,
+                                              itemBuilder: (context, index22) {
+                                                String? name = context.read<AppBloc>().usersData!.child(list_of_users[index22].trim()).child('first_name').value as String?;
+                                                return ListTile(
+                                                    title: Text(name ?? "User"),
+                                                    trailing: ElevatedButton.icon(
+                                                      onPressed: () {
+                                                        context.read<AppBloc>().acceptedBook(list_of_users[index22].trim(), parkingUnitId.trim());
 
-                                                context.read<AppBloc>().ref.child('hardware').child(parkingUnitId).update({
-                                                  'waiting': []
-                                                });
+                                                        context.read<AppBloc>().ref.child('hardware').child(parkingUnitId.trim()).update({
+                                                          'waiting': []
+                                                        });
+                                                        Navigator.of(dialogContext).pop();
+                                                      },
+                                                      icon: Icon(
+                                                        Icons.done_outline,
+                                                        color: Colors.white,
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                          Colors.green,
+                                                          elevation: 0
+                                                      ),
+                                                      label: Text('Accept', softWrap: true,style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),),
+                                                    ));
 
-                                                Navigator.of(dialogContext).pop();
                                               },
-                                              icon: Icon(
-                                                Icons.done_outline,
-                                                color: Colors.white,
-                                              ),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    Colors.green,
-                                                elevation: 0
-                                              ),
-                                              label: Text('Accept', softWrap: true,style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),),
-                                            ));
+                                            ),
+                                          ],
+                                        );
+
                                       }),
                                 ),
                                 actions: [
@@ -145,13 +162,7 @@ class _MapPageState extends State<MapPage> {
                       ),
                       onPressed: () async {
                         await authContext.read<AuthBloc>().auth.signOut();
-                        Navigator.of(context)
-                            .popUntil((route) => route.isFirst);
-                        await context
-                            .read<AppBloc>()
-                            .serviceStatusStream
-                            .cancel();
-                        // Navigator.pushNamed(context, '/login');
+                        Navigator.pop(context);
                       },
                     );
                   },
@@ -387,7 +398,71 @@ class _MapPageState extends State<MapPage> {
                                                             1
                                                         ? "Available"
                                                         : "Busy"),
-                                                    // Divider(),
+                                                    Divider(),
+
+                                                    Builder(
+                                                        builder: (context) {
+                                                          bool isAvailable = e.child('status').value == 0;
+                                                          var Booked = e.child('booked');
+
+                                                          if(isAvailable == false){
+                                                            return Icon(
+                                                              Icons.event_busy_rounded,
+                                                              color: Colors.red,
+                                                              size: 40,
+                                                            );
+                                                          }
+
+                                                          List? waitingQueue = e.child('waiting').value as List?;
+
+                                                          if(waitingQueue != null && waitingQueue.isNotEmpty){
+                                                            return Text('Waiting Acceptance', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16),);
+                                                          }
+
+                                                          if(Booked.value != null){
+                                                            var until = Booked.child('until').value.toString();
+                                                            var now = DateTime.now();
+                                                            var untilDateTime = DateTime.parse(until);
+                                                            var differenceInSeconds = untilDateTime.difference(now).inSeconds;
+
+                                                            if(differenceInSeconds <= 0){
+                                                              return InkWell(
+                                                                  onTap: () {
+                                                                    context.read<AppBloc>().bookParkingUnit( context.read<AuthBloc>().auth.currentUser!.uid.toString(), e.key.toString());
+                                                                  },
+                                                                  child: Text('Book Me Now', softWrap: true,style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 16),));
+                                                            }
+                                                            Timer _timer = Timer(Duration(seconds: 1), () {
+                                                              try {
+                                                                setState(() {});
+                                                              }
+                                                              catch (e) {}
+                                                            });
+
+                                                            return Column(
+                                                              children: [
+                                                                Text('Booked', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16),),
+                                                                Text("${differenceInSeconds~/60}:${differenceInSeconds%60}", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16),),
+                                                              ],
+                                                            );
+                                                          }
+
+                                                          if(isAvailable){
+                                                            return InkWell(
+                                                                onTap: () {
+                                                                  context.read<AppBloc>().bookParkingUnit( context.read<AuthBloc>().auth.currentUser!.uid.toString(), e.key.toString());
+                                                                },
+                                                                child: Text('Book Me Now', softWrap: true,style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 16),));
+                                                          }
+
+                                                          return Icon(
+                                                            Icons.event_busy_rounded,
+                                                            color: Colors.red,
+                                                            size: 40,
+                                                          );
+                                                        }
+                                                    ),
+
                                                     const SizedBox(height: 15),
                                                     Builder(builder: (context) {
 
@@ -399,57 +474,81 @@ class _MapPageState extends State<MapPage> {
 
                                                       if (isMine) {
                                                         if (isBoth) {
-                                                          return Row(
-                                                            mainAxisAlignment:
-                                                                MainAxisAlignment
-                                                                    .spaceBetween,
+                                                          return Column(
                                                             children: [
-                                                              Text(
-                                                                'Access',
-                                                                style: TextStyle(
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold),
+                                                              Row(
+                                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                children: [
+                                                                  Text(
+                                                                    'Access',
+                                                                    style: TextStyle(
+                                                                        fontWeight:
+                                                                            FontWeight
+                                                                                .bold),
+                                                                  ),
+                                                                  Builder(builder:
+                                                                      (context) {
+                                                                    bool? isPublic = context
+                                                                        .read<
+                                                                            AppBloc>()
+                                                                        .data!
+                                                                        .child(e.key
+                                                                            .toString())
+                                                                        .child(
+                                                                            'is_public')
+                                                                        .value as bool?;
+
+                                                                    if (!(isPublic ??
+                                                                        true)) {
+                                                                      return TextButton(
+                                                                          onPressed:
+                                                                              () {
+                                                                            context.read<AppBloc>().setHardwarePublic(e
+                                                                                .key
+                                                                                .toString());
+                                                                            Navigator.pop(
+                                                                                context);
+                                                                          },
+                                                                          child: Text(
+                                                                              'Make it Public'));
+                                                                    } else {
+                                                                      return TextButton(
+                                                                          onPressed:
+                                                                              () {
+                                                                            context.read<AppBloc>().setHardwarePrivate(e
+                                                                                .key
+                                                                                .toString());
+                                                                            Navigator.pop(
+                                                                                context);
+                                                                          },
+                                                                          child: Text(
+                                                                              'Make it Private'));
+                                                                    }
+                                                                  }),
+                                                                ],
                                                               ),
-                                                              Builder(builder:
-                                                                  (context) {
-                                                                bool? isPublic = context
-                                                                    .read<
-                                                                        AppBloc>()
-                                                                    .data!
-                                                                    .child(e.key
-                                                                        .toString())
-                                                                    .child(
-                                                                        'is_public')
-                                                                    .value as bool?;
-                                                                print(isPublic);
-                                                                if (!(isPublic ??
-                                                                    true)) {
-                                                                  return TextButton(
-                                                                      onPressed:
-                                                                          () {
-                                                                        context.read<AppBloc>().setHardwarePublic(e
-                                                                            .key
-                                                                            .toString());
-                                                                        Navigator.pop(
-                                                                            context);
-                                                                      },
-                                                                      child: Text(
-                                                                          'Make it Public'));
-                                                                } else {
-                                                                  return TextButton(
-                                                                      onPressed:
-                                                                          () {
-                                                                        context.read<AppBloc>().setHardwarePrivate(e
-                                                                            .key
-                                                                            .toString());
-                                                                        Navigator.pop(
-                                                                            context);
-                                                                      },
-                                                                      child: Text(
-                                                                          'Make it Private'));
-                                                                }
-                                                              }),
+                                                              Divider(),
+                                                              SizedBox(
+                                                                width: double.infinity,
+                                                                child: ElevatedButton.icon(
+                                                                  style: ElevatedButton.styleFrom(
+                                                                    backgroundColor: Colors.red.withOpacity(0.8),
+                                                                    foregroundColor: Colors.white,
+                                                                    shape: RoundedRectangleBorder(
+                                                                      borderRadius: BorderRadius.circular(10),
+                                                                    ),
+                                                                  ),
+                                                                  onPressed: () async {
+                                                                    await context.read<AppBloc>().deleteHardware(e.key.toString());
+                                                                    Navigator.pop(context);
+                                                                    context.read<AppBloc>().read_values().then((r){
+                                                                      setState(() {
+                                                                      });
+                                                                    });
+                                                                  },
+                                                                  icon: Icon(Icons.delete),
+                                                                  label: Text('Delete the spot'),),
+                                                              )
                                                             ],
                                                           );
                                                         }
