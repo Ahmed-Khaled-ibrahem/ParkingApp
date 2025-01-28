@@ -105,12 +105,17 @@ class _MapPageState extends State<MapPage> {
                                               itemCount: list_of_users.length,
                                               itemBuilder: (context, index22) {
                                                 String? name = context.read<AppBloc>().usersData!.child(list_of_users[index22].trim()).child('first_name').value as String?;
-                                                return ListTile(
-                                                    title: Text(name ?? "User"),
-                                                    trailing: ElevatedButton.icon(
+                                                return Column(
+
+                                                  children: [
+                                                    Column(
+                                                      children: [
+                                                Text(name ?? "User"),
+                                                Row(
+                                                  children: [
+                                                    ElevatedButton.icon(
                                                       onPressed: () {
                                                         context.read<AppBloc>().acceptedBook(list_of_users[index22].trim(), parkingUnitId.trim());
-
                                                         context.read<AppBloc>().ref.child('hardware').child(parkingUnitId.trim()).update({
                                                           'waiting': []
                                                         });
@@ -126,13 +131,37 @@ class _MapPageState extends State<MapPage> {
                                                           elevation: 0
                                                       ),
                                                       label: Text('Accept', softWrap: true,style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),),
-                                                    ));
+                                                    ),
+                                                    SizedBox(width: 10,),
+                                                    ElevatedButton.icon(
+                                                      onPressed: () {
+                                                        context.read<AppBloc>().ref.child('hardware').child(parkingUnitId.trim()).update({
+                                                          'waiting': []
+                                                        });
+                                                        Navigator.of(dialogContext).pop();
+                                                      },
+                                                      icon: Icon(
+                                                        Icons.close_sharp,
+                                                        color: Colors.white,
+                                                      ),
+                                                      style: ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                          Colors.red,
+                                                          elevation: 0
+                                                      ),
+                                                      label: Text('Decline', softWrap: true,style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),),
+                                                    ),
+                                                ]
+                                                )
+                                                      ]
+                                                    ),
 
+                                                  ],
+                                                );
                                               },
                                             ),
                                           ],
                                         );
-
                                       }),
                                 ),
                                 actions: [
@@ -231,8 +260,7 @@ class _MapPageState extends State<MapPage> {
                                   ),
                                 ),
                                 selectedLocation == null
-                                    ? Marker(
-                                        point: LatLng(0, 0), child: Container())
+                                    ? Marker(point: LatLng(0, 0), child: Container())
                                     : Marker(
                                         point: selectedLocation!,
                                         width: 40.0,
