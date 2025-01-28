@@ -129,7 +129,7 @@ class _BottomSheetDetailState extends State<BottomSheetDetail> {
 
                           List? waitingQueue = context.read<AppBloc>().data!.children.elementAt(index).child('waiting').value as List?;
 
-                          if(waitingQueue != null && waitingQueue.isNotEmpty){
+                          if(waitingQueue != null && waitingQueue.isNotEmpty && waitingQueue.contains(context.read<AuthBloc>().auth.currentUser!.uid.toString())){
                             return Text('Waiting \nAcceptance', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16),);
                           }
 

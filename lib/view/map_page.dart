@@ -415,7 +415,7 @@ class _MapPageState extends State<MapPage> {
 
                                                           List? waitingQueue = e.child('waiting').value as List?;
 
-                                                          if(waitingQueue != null && waitingQueue.isNotEmpty){
+                                                          if(waitingQueue != null && waitingQueue.isNotEmpty && waitingQueue.contains(context.read<AuthBloc>().auth.currentUser!.uid.toString()) ){
                                                             return Text('Waiting Acceptance', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 16),);
                                                           }
 
@@ -438,7 +438,6 @@ class _MapPageState extends State<MapPage> {
                                                               }
                                                               catch (e) {}
                                                             });
-
                                                             return Column(
                                                               children: [
                                                                 Text('Booked', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 16),),
@@ -446,7 +445,6 @@ class _MapPageState extends State<MapPage> {
                                                               ],
                                                             );
                                                           }
-
                                                           if(isAvailable){
                                                             return InkWell(
                                                                 onTap: () {
