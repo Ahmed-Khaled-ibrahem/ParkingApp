@@ -1,0 +1,165 @@
+import cv2
+import mediapipe as mp
+import numpy as np
+import socket
+
+# ESP32 IP address and port (replace with your ESP's IP and port)
+ESP_IP = "192.168.1.7"  # Replace with the ESP's IP address
+ESP_PORT = 80
+
+# Create a socket and connect to the ESP
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.connect((ESP_IP, ESP_PORT))
+print(f"Connected to ESP at {ESP_IP}:{ESP_PORT}")
+
+# Initialize MediaPipe Hands
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+hands = mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+
+def send_data_to_ESP(data):
+    try:
+        # Send a message
+        message = f"{data}\n"  # The '\n' indicates the end of the message
+        client_socket.send(message.encode('utf-8'))
+
+        # Receive acknowledgment from ESP (optional)
+        # response = client_socket.recv(1024).decode('utf-8')
+        # print(f"ESP Response: {response}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+    finally:
+        pass
+        # Close the connection
+        # client_socket.close()
+        # print("Connection closed.")
+
+def distance(p1, p2):
+    """Calculate Euclidean distance between two landmark points."""
+    return np.hypot(p1.x - p2.x, p1.y - p2.y)
+
+def is_i_love_you(landmarks):
+    hand_list = [
+        landmarks[8].y < landmarks[12].y,
+        landmarks[8].y < landmarks[11].y,
+        landmarks[8].y < landmarks[15].y,
+        landmarks[8].y < landmarks[16].y,
+        landmarks[20].y < landmarks[18].y,
+    ]
+    return all(hand_list)
+
+def is_victory(landmarks):
+    hand_list = [
+        landmarks[8].y < landmarks[6].y,
+        landmarks[12].y < landmarks[10].y,
+        landmarks[16].y > landmarks[14].y,
+        landmarks[20].y > landmarks[19].y,
+    ]
+    return all(hand_list)
+
+def is_not_good(landmarks):
+    hand_list = [
+        landmarks[4].y > landmarks[3].y,
+        landmarks[4].y > landmarks[2].y,
+        landmarks[4].y > landmarks[0].y,
+        abs(landmarks[12].x) > abs(landmarks[9].x),
+    ]
+    return all(hand_list)
+
+def is_okay_sign(landmarks):
+    hand_list = distance(landmarks[4], landmarks[8]) < 0.05 and all(landmarks[i].y < landmarks[0].y for i in [12, 16, 20])
+    return hand_list
+
+def is_all_fingers_extended(landmarks):
+    return all(landmarks[i].y < landmarks[i - 2].y for i in [8, 12, 16, 20])
+
+def is_this_way(landmarks):
+    hand_list = [
+        abs(landmarks[8].x) < abs(landmarks[7].x),
+        abs(landmarks[8].x) < abs(landmarks[5].x),
+        abs(landmarks[8].x) < abs(landmarks[12].x),
+        abs(landmarks[8].x) < abs(landmarks[16].x),
+        abs(landmarks[8].x) < abs(landmarks[17].x),
+        abs(landmarks[8].x) < abs(landmarks[4].x),
+    ]
+    return all(hand_list)
+
+def is_look_at_this(landmarks):
+    hand_list = [
+        abs(landmarks[8].x) > abs(landmarks[7].x),
+        abs(landmarks[8].x) > abs(landmarks[5].x),
+        abs(landmarks[8].x) > abs(landmarks[12].x),
+        abs(landmarks[8].x) > abs(landmarks[16].x),
+        abs(landmarks[8].x) > abs(landmarks[17].x),
+    ]
+    return all(hand_list)
+
+def classify_hand_gesture(landmarks):
+    if not landmarks:
+        return "Neutral"
+
+    if is_all_fingers_extended(landmarks):
+        return "High Five"
+    if is_not_good(landmarks):
+        return "Not Good"
+    if is_victory(landmarks):
+        return "Victory"
+    if is_okay_sign(landmarks):
+        return "Okay"
+    if is_this_way(landmarks):
+        return "This Way"
+    if is_look_at_this(landmarks):
+        return "Look At This"
+    if is_i_love_you(landmarks):
+        return "I love You"
+
+    return "Neutral"
+
+
+# Open webcam
+cap = cv2.VideoCapture(0)
+
+if not cap.isOpened():
+    print("Error: Could not open webcam.")
+    exit()
+
+while cap.isOpened():
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Failed to capture image.")
+        break
+
+    # Flip the frame horizontally for a mirror-like effect
+    frame = cv2.flip(frame, 1)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # Process the frame
+    result = hands.process(rgb_frame)
+    gesture = "Neutral"
+
+    # Draw hand annotations
+    if result.multi_hand_landmarks:
+        for hand_landmarks in result.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+
+            # Classify hand gesture
+            gesture = classify_hand_gesture(hand_landmarks.landmark)
+            send_data_to_ESP(gesture)
+    else:
+        send_data_to_ESP(gesture)
+
+    # Display the gesture classification
+    cv2.putText(frame, f"Gesture: {gesture}", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+    # Show the output
+    cv2.imshow('Hand Gesture Detection', frame)
+
+    # Break loop on 'q' key press
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Release resources
+cap.release()
+cv2.destroyAllWindows()
