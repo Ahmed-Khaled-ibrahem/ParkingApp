@@ -1,0 +1,168 @@
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include "WiFi.h"
+
+#define PH_Pin 33
+#define TDS_Pin 32
+#define Turbidity_pin 27
+#define ONE_WIRE_BUS 18
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+// Wi-Fi credentials
+const char* ssid = "Ahmed";
+const char* password = "#1288534459&4274321#ahmed";
+
+// MQTT broker details private
+const char* mqtt_broker = "377c382160b742fdb1606e23ea7b9400.s1.eu.hivemq.cloud";
+const int mqtt_port = 8883;
+const char* mqtt_username = "espuser";
+const char* mqtt_password = "espuser123Aa#";
+
+// MQTT topic for IR sensor
+const char* topic_publish_ph = "esp32/ph";
+const char* topic_publish_tds = "esp32/tds";
+const char* topic_publish_temp = "esp32/temp";
+const char* topic_publish_tur = "esp32/tur";
+
+// IR Sensor details
+const int ir_sensor_pin = 34;  // GPIO pin connected to the IR sensor
+
+// Create instances
+WiFiClientSecure wifiClient;
+PubSubClient mqttClient(wifiClient);
+
+// Variables for timing
+long previous_time = 0;
+
+void setupMQTT() {
+  mqttClient.setServer(mqtt_broker, mqtt_port);
+}
+
+void reconnect() {
+  Serial.println("Connecting to MQTT Broker...");
+  while (!mqttClient.connected()) {
+    Serial.println("Reconnecting to MQTT Broker...");
+    String clientId = "ESP32Client-";
+    clientId += String(random(0xffff), HEX);
+
+    if (mqttClient.connect(clientId.c_str(), mqtt_username, mqtt_password)) {
+      Serial.println("Connected to MQTT Broker.");
+    } else {
+      Serial.print("Failed, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" try again in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(PH_Pin, INPUT);
+  pinMode(TDS_Pin, INPUT);
+  pinMode(Turbidity_pin, INPUT);
+
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("Connected to Wi-Fi");
+
+  wifiClient.setInsecure();
+
+  setupMQTT();
+
+  pinMode(ir_sensor_pin, INPUT);  // Set IR sensor pin as input
+}
+
+void loop() {
+  if (!mqttClient.connected()) {
+    reconnect();
+  }
+  mqttClient.loop();
+
+  Serial.print("Data,");
+  Serial.print(readTemp());
+  Serial.print(",");
+  Serial.print(readTDS());
+  Serial.print(",");
+  Serial.print(readPH());
+  Serial.print(",");
+  Serial.print(readTurbidity());
+  Serial.println(",");
+  delay(1000);
+
+  long now = millis();
+  if (now - previous_time > 10000) {  // now - previous_time > 10000
+    previous_time = now;
+
+    // Convert the value to a string
+    String temp_value_str = String(readTemp());
+    String tds_value_str = String(readTDS());
+    String ph_value_str = String(readPH());
+    String tur_value_str = String(readTurbidity());
+
+    mqttClient.publish(topic_publish_ph, ph_value_str.c_str());
+    mqttClient.publish(topic_publish_tds, tds_value_str.c_str());
+    mqttClient.publish(topic_publish_temp, temp_value_str.c_str());
+    mqttClient.publish(topic_publish_tur, tur_value_str.c_str());
+  }
+}
+
+
+float readPH() {
+
+  int Value = analogRead(PH_Pin);
+  float voltage = Value * (3.3 / 4095.0);
+  float ph = (3.3 * voltage);
+
+  return ph;
+  // return Value;
+  // return GetPH(Value)
+}
+
+float readTDS() {
+
+  int analogValue = analogRead(TDS_Pin);
+  float voltage = analogValue * 3.3 / 4095;
+  float tdsValue = (voltage * 0.5) / (1.0) * 1000;
+  return tdsValue;
+}
+
+float readTemp() {
+
+  sensors.requestTemperatures();
+  float temperatureC = sensors.getTempCByIndex(0);
+  return temperatureC;
+}
+
+float readTurbidity() {
+  int val = analogRead(Turbidity_pin);
+  float turbidity = map(val, 0, 2800, 5, 1);
+  return turbidity;
+}
+
+float GetPH(int Value) {
+  float ph = 0;
+
+  int base = 2500;    // 0  ph
+  int normal = 3500;  // 7  ph
+  int acid = 4095;    // 14 ph
+
+  if (Value > normal) {
+    ph = map(Value, normal, acid, 7.0, 14.0);
+  } else {
+    ph = map(Value, base, normal, 0, 7);
+  }
+
+  ph = 14 - ph;
+  return ph;
+}
