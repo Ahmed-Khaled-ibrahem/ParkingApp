@@ -1,0 +1,49 @@
+
+const int analogPin = A1; // Analog input pin for TDS sensor
+const float VREF = 5.0; // Reference voltage (assuming 5V for Arduino)
+const int goodWaterLedPin = 13; // Green LED pin for good water quality
+const int moderateWaterLedPin = 12; // Yellow LED pin for moderate water quality
+const int poorWaterLedPin = 11; // Red LED pin for poor water quality
+
+void setup() {
+Serial.begin(9600); // Initialize serial communication
+pinMode(goodWaterLedPin, OUTPUT); // Set LED pins as outputs
+pinMode(moderateWaterLedPin, OUTPUT);
+pinMode(poorWaterLedPin, OUTPUT);
+}
+
+void loop() {
+// Read analog value from the TDS sensor
+int sensorValue = analogRead(analogPin);
+
+Serial.println(sensorValue);
+// Convert analog value to voltage
+float voltage = sensorValue * (VREF / 1023.0);
+
+// Check water quality based on TDS value and control the LEDs
+if (sensorValue <= 0) {
+digitalWrite(goodWaterLedPin, HIGH);
+digitalWrite(moderateWaterLedPin, HIGH);
+digitalWrite(poorWaterLedPin, HIGH);
+delay (25);
+digitalWrite(goodWaterLedPin, LOW);
+digitalWrite(moderateWaterLedPin, LOW);
+digitalWrite(poorWaterLedPin, LOW);
+delay (25);
+}else if (sensorValue <= 100) {
+digitalWrite(goodWaterLedPin, HIGH); // Green LED on – Good water quality
+digitalWrite(moderateWaterLedPin, LOW); // Yellow LED off
+digitalWrite(poorWaterLedPin, LOW); // Red LED off
+} else if (sensorValue <= 200) {
+digitalWrite(goodWaterLedPin, LOW); // Green LED off
+digitalWrite(moderateWaterLedPin, HIGH); // Yellow LED on – Moderate water quality
+digitalWrite(poorWaterLedPin, LOW); // Red LED off
+} else {
+digitalWrite(goodWaterLedPin, LOW); // Green LED off
+digitalWrite(moderateWaterLedPin, LOW); // Yellow LED off
+digitalWrite(poorWaterLedPin, HIGH); // Red LED on – Poor water quality
+}
+
+// Delay for some time before taking the next sensor reading
+delay(1000); // You can adjust this delay as needed
+}
