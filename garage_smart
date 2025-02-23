@@ -1,0 +1,113 @@
+#include <BLEDevice.h>
+#include <BLEScan.h>
+#include <BLEAdvertisedDevice.h>
+
+const char* targetDevice = "AA:BB:CC:DD:EE:FF";
+int scanTime = 5;
+BLEScan* pBLEScan;
+
+bool isOpen = false;
+
+// Motor A
+int motor1Pin1 = 36;
+int motor1Pin2 = 39;
+int enable1Pin = 14;
+
+// Setting PWM properties
+const int freq = 30000;
+const int pwmChannel = 0;
+const int resolution = 8;
+int dutyCycle = 200;
+
+
+void setup() {
+  Serial.begin(115200);
+  BLEDevice::init("ESP32_Garage");
+  pBLEScan = BLEDevice::getScan();
+  pBLEScan->setActiveScan(true);
+
+  // sets the pins as outputs:
+  pinMode(motor1Pin1, OUTPUT);
+  pinMode(motor1Pin2, OUTPUT);
+  pinMode(enable1Pin, OUTPUT);
+
+  // configure LEDC PWM
+  ledcAttachChannel(enable1Pin, freq, resolution, pwmChannel);
+}
+
+void loop() {
+  Serial.println("Scanning for Bluetooth Devices...");
+  BLEScanResults* foundDevices = pBLEScan->start(scanTime, false);
+  bool deviceFound = false;
+
+  for (int i = 0; i < foundDevices->getCount(); i++) {
+    BLEAdvertisedDevice device = foundDevices->getDevice(i);
+    Serial.println(device.getAddress().toString().c_str());
+
+    if (device.haveName()) {
+      Serial.print("Device Name: ");
+      Serial.println(device.getName().c_str());
+    } else {
+      Serial.println("Device Name: (Unknown)");
+    }
+
+
+    if (device.getAddress().toString() == targetDevice) {
+      Serial.println("Authorized device found! Opening garage...");
+      deviceFound = true;
+      if (!isOpen) {
+        motor_up();
+        delay(5000);
+        motor_stop();
+        isOpen = true;
+      }
+      break;
+    }
+  }
+
+  if (!deviceFound && isOpen) {
+    Serial.println("Device not found! Closing garage...");
+    motor_down();
+    delay(5000);
+    motor_stop();
+    isOpen = false;
+  }
+
+  delay(2000);
+  test_motor();
+}
+
+void test_motor() {
+  motor_up();
+  motor_stop();
+  delay(3000);
+
+  motor_down();
+  motor_stop();
+  delay(3000);
+}
+
+
+void motor_up() {
+  // Move the DC motor forward at maximum speed
+  Serial.println("Moving Forward");
+  digitalWrite(motor1Pin1, LOW);
+  digitalWrite(motor1Pin2, HIGH);
+  delay(2000);
+}
+
+void motor_down() {
+  // Move DC motor backwards at maximum speed
+  Serial.println("Moving Backwards");
+  digitalWrite(motor1Pin1, HIGH);
+  digitalWrite(motor1Pin2, LOW);
+  delay(2000);
+}
+
+void motor_stop() {
+  // Stop the DC motor
+  Serial.println("Motor stopped");
+  digitalWrite(motor1Pin1, LOW);
+  digitalWrite(motor1Pin2, LOW);
+  delay(1000);
+}
