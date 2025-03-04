@@ -1,0 +1,97 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <SPI.h>
+#include <LoRa.h>
+
+#define MASTER 1  // Set to 1 for master, 0 for slaves
+#define NODE_ID 1 // Set a unique ID (1, 2 for slaves)
+
+#define FLOW_SENSOR 3  // Interrupt-capable pin for flow sensor
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+volatile int pulseCount = 0;
+unsigned long lastTime = 0;
+float flowRate = 0;
+
+int flowReadings[3] = {0, 0, 0}; // Store readings for all sensors
+
+void pulseCounter() {
+    pulseCount++;
+}
+
+void setup() {
+    Serial.begin(9600);
+    lcd.init();
+    lcd.backlight();
+    
+    pinMode(FLOW_SENSOR, INPUT);
+    attachInterrupt(digitalPinToInterrupt(FLOW_SENSOR), pulseCounter, RISING);
+    
+    if (!LoRa.begin(433E6)) { // Ensure correct frequency
+        Serial.println("Starting LoRa failed!");
+        while (1);
+    }
+    Serial.println("LoRa Initialized");
+}
+
+void loop() {
+  
+    if (millis() - lastTime > 1000) { // Every second
+        flowRate = (pulseCount / 7.5); // Convert pulses to L/min (adjust based on sensor specs)
+        pulseCount = 0;
+        flowReadings[2] = flowRate; // Master sensor
+        lastTime = millis();
+    }
+    
+    if (MASTER) {
+        receiveData();
+        displayData();
+    } else {
+        sendData();
+    }
+    delay(1000);
+}
+
+void sendData() {
+    LoRa.beginPacket();
+    LoRa.print(NODE_ID);
+    LoRa.print(",");
+    LoRa.print(flowRate);
+    LoRa.endPacket();
+    
+    Serial.print("Sent: ");
+    Serial.print(NODE_ID);
+    Serial.print(" Flow: ");
+    Serial.println(flowRate);
+}
+
+void receiveData() {
+    int packetSize = LoRa.parsePacket();
+    if (packetSize) {
+        String data = "";
+        while (LoRa.available()) {
+            data += (char)LoRa.read();
+        }
+        Serial.println("Received: " + data);
+        
+        int nodeId;
+        float flow;
+        sscanf(data.c_str(), "%d,%f", &nodeId, &flow);
+        
+        if (nodeId >= 1 && nodeId <= 2) { // Only update for slave nodes
+            flowReadings[nodeId - 1] = flow;
+        }
+    }
+}
+
+void displayData() {
+    lcd.clear();
+    for (int i = 0; i < 3; i++) {
+        lcd.setCursor(0, i);
+        lcd.print("N");
+        lcd.print(i + 1);
+        lcd.print(": ");
+        lcd.print(flowReadings[i]);
+    }
+}
