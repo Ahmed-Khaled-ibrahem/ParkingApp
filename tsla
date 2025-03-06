@@ -1,0 +1,55 @@
+#define PIR_PIN 3    // PIR sensor output connected to pin 2
+#define RELAY_PIN 13  // Relay control pin
+
+bool relayState = false;     // Track relay state
+bool manualControl = false;  // Track if manual control is active
+
+void setup() {
+  pinMode(PIR_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+
+  pinMode(4, OUTPUT);
+  pinMode(2, OUTPUT);
+  delay(500);
+
+  digitalWrite(4, LOW);   // Start with relay OFF
+  digitalWrite(2, HIGH);  // Start with relay OFF
+
+  digitalWrite(RELAY_PIN, LOW);  // Start with relay OFF
+  Serial.begin(9600);
+  Serial.println("System Ready. Type 'on' or 'off' to control relay manually.");
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    String command = Serial.readStringUntil('\n');  // Read serial input
+    command.trim();                                 // Remove extra spaces/newlines
+
+    if (command == "on") {
+      manualControl = true;
+      relayState = true;
+      Serial.println("Manual Mode: Relay ON");
+    } else if (command == "off") {
+      manualControl = true;
+      relayState = false;
+      Serial.println("Manual Mode: Relay OFF");
+    } else if (command == "auto") {
+      manualControl = false;
+      Serial.println("Auto Mode: PIR sensor controls relay.");
+    }
+  }
+
+  if (!manualControl) {  // If manual mode is OFF, use PIR sensor
+    int motion = digitalRead(PIR_PIN);
+    if (motion == HIGH) {
+      relayState = true;
+      Serial.println("Motion detected! Turning ON relay.");
+    } else {
+      relayState = false;
+      Serial.println("No motion detected. Turning OFF relay.");
+    }
+  }
+
+  digitalWrite(RELAY_PIN, relayState ? HIGH : LOW);  // Apply relay state
+  delay(500);                                        // Small delay to avoid rapid switching
+}
