@@ -1,0 +1,126 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <SoftwareSerial.h>
+
+#define MQ4_PIN A0
+#define RED_LED 2
+#define GREEN_LED 3
+#define BLUE_LED 4
+#define FAN 6
+#define SIM_TX 10
+#define SIM_RX 9
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+SoftwareSerial sim800l(SIM_TX, SIM_RX);
+
+const int dangerThreshold = 400;  // Adjust based on testing
+bool smsSent = false;
+bool fanActive = false;
+unsigned long fanStartTime = 0;
+int gasValue = 0;
+
+void setup() {
+
+  Serial.begin(9600);  // Initialize Serial Monitor
+
+  pinMode(MQ4_PIN, INPUT);
+  pinMode(RED_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(BLUE_LED, OUTPUT);
+  pinMode(FAN, OUTPUT);
+
+  lcd.init();
+  lcd.backlight();
+
+  sim800l.begin(9600);
+  delay(500);
+
+  lcd.setCursor(0, 0);
+  lcd.print("Gas Detector");
+  delay(3000);
+  lcd.clear();
+
+  Serial.println("Enter 'test 0-500' to simulate gas level.");
+}
+
+void loop() {
+
+  // Read real sensor value or test input from Serial Monitor
+
+  gasValue = analogRead(MQ4_PIN);  // Read actual MQ-4 sensor if no test input
+
+  if (Serial.available()) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    if (input.startsWith("test ")) {
+      gasValue = input.substring(5).toInt();  // Extract gas value
+      Serial.print("Simulated Gas Level: ");
+      Serial.println(gasValue);
+    }
+  }
+
+  lcd.setCursor(0, 0);
+  lcd.print("Gas: ");
+  lcd.print(gasValue);
+  lcd.print("  ");
+
+  if (gasValue < 200) {
+    normalMode();
+  } else if (gasValue >= 200 && gasValue < dangerThreshold) {
+    warningMode();
+  } else {
+    dangerMode();
+  }
+
+  if (fanActive && (millis() - fanStartTime >= 5000) ) {
+    digitalWrite(FAN, LOW);
+    fanActive = false;
+  }
+
+  delay(1000);
+}
+
+void normalMode() {
+  setLED(0, 1, 0);  // Green
+  lcd.setCursor(0, 1);
+  lcd.print("Status: Safe   ");
+  smsSent = false;
+}
+
+void warningMode() {
+  setLED(0, 0, 1);  // blue
+  lcd.setCursor(0, 1);
+  lcd.print("Status: Warning ");
+}
+
+void dangerMode() {
+  setLED(1, 0, 0);  // Red
+  lcd.setCursor(0, 1);
+  lcd.print("Status: DANGER! ");
+
+  if (!smsSent) {
+    sendSMS();
+    smsSent = true;
+  }
+
+  digitalWrite(FAN, HIGH);
+  fanActive = true;
+  fanStartTime = millis();
+}
+
+void setLED(bool r, bool g, bool b) {
+  digitalWrite(RED_LED, r);
+  digitalWrite(GREEN_LED, g);
+  digitalWrite(BLUE_LED, b);
+}
+
+void sendSMS() {
+  sim800l.println("AT+CMGF=1");
+  delay(1000);
+  sim800l.println("AT+CMGS=\"+1234567890\"");  // Replace with your phone number
+  delay(1000);
+  sim800l.print("Gas Level Critical! Take action immediately.");
+  delay(1000);
+  sim800l.write(26);
+  delay(3000);
+}
