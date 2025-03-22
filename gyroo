@@ -1,0 +1,97 @@
+#include <MPU9250_asukiaaa.h>
+
+#define SDA_PIN 21
+#define SCL_PIN 22
+
+MPU9250_asukiaaa mySensor;
+
+// Angles from complementary filter
+float pitch = 0.0;
+float roll = 0.0;
+
+// Gyroscope bias (calculated during calibration)
+float gyroXbias = 0.0;
+float gyroYbias = 0.0;
+
+// Timing for integration
+unsigned long lastTime = 0;
+
+// Complementary filter coefficient (0.0 to 1.0)
+// 0.9 means 90% gyro, 10% accel
+const float alpha = 0.9;
+
+void calibrateGyro() {
+  Serial.println("Calibrating gyroscope... Keep sensor still for 5 seconds.");
+  float gxSum = 0.0, gySum = 0.0;
+  int samples = 500;
+
+  for (int i = 0; i < samples; i++) {
+    mySensor.gyroUpdate();
+    gxSum += mySensor.gyroX();
+    gySum += mySensor.gyroY();
+    delay(10); // Sample every 10ms
+  }
+
+  gyroXbias = gxSum / samples;
+  gyroYbias = gySum / samples;
+  Serial.print("Gyro X bias: "); Serial.print(gyroXbias);
+  Serial.print(" | Gyro Y bias: "); Serial.println(gyroYbias);
+  Serial.println("Calibration complete.");
+}
+
+void setup() {
+  Serial.begin(115200);
+  while (!Serial);
+
+  Wire.begin(SDA_PIN, SCL_PIN);
+  mySensor.setWire(&Wire);
+
+  // Initialize accelerometer and gyroscope
+  mySensor.beginAccel();
+  mySensor.beginGyro();
+
+  // Calibrate gyroscope
+  calibrateGyro();
+
+  Serial.println("MPU9250 initialized - Showing Pitch and Roll Angles");
+  lastTime = millis();
+}
+
+void loop() {
+  // Update sensor data
+  mySensor.accelUpdate();
+  mySensor.gyroUpdate();
+
+  // Get raw sensor values
+  float ax = mySensor.accelX();
+  float ay = mySensor.accelY();
+  float az = mySensor.accelZ();
+  float gx = mySensor.gyroX() - gyroXbias; // Subtract bias
+  float gy = mySensor.gyroY() - gyroYbias;
+
+  // Calculate time difference in seconds
+  unsigned long currentTime = millis();
+  float dt = (currentTime - lastTime) / 1000.0;
+  lastTime = currentTime;
+
+  // Accelerometer-based angles (degrees)
+  float accelPitch = atan2(ax, sqrt(ay * ay + az * az)) * 180.0 / PI;
+  float accelRoll = atan2(ay, sqrt(ax * ax + az * az)) * 180.0 / PI;
+
+  // Gyroscope-based angle updates (integration)
+  pitch += gx * dt; // Pitch from gyro (Y-axis)
+  roll += gy * dt;  // Roll from gyro (X-axis)
+
+  // Complementary filter: combine gyro and accel
+  pitch = alpha * pitch + (1.0 - alpha) * accelPitch;
+  roll = alpha * roll + (1.0 - alpha) * accelRoll;
+
+  // Print angles
+  Serial.print("Pitch: ");
+  Serial.print(pitch);
+  Serial.print(" degrees  |  Roll: ");
+  Serial.print(roll);
+  Serial.println(" degrees");
+
+  delay(100); // Update every 100ms
+}
