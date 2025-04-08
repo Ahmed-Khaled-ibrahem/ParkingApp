@@ -1,54 +1,149 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
 
-//Create software serial object to communicate with SIM800L
-SoftwareSerial sim800l(3, 2); //SIM800L Tx & Rx is connected to Arduino #3 & #2
+#define MQ4_PIN A0
+#define RED_LED 9
+#define GREEN_LED 10
+#define BLUE_LED 4
+#define FAN 6
+#define SIM_TX 3
+#define SIM_RX 2
 
-const String phoneNumber = "+1234567890"; // Replace with the target phone number
-const String message = "Hello, this is a test message from SIM800L.";
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+SoftwareSerial sim800l(SIM_TX, SIM_RX);
+
+const int dangerThreshold = 400;
 bool smsSent = false;
+bool fanActive = false;
+unsigned long fanStartTime = 0;
+int gasValue = 0;
 
-void setup()
-{
-  //Begin serial communication with Arduino and Arduino IDE (Serial Monitor)
+const String phoneNumber = "+1234567890";
+const String message = "Hello, this is a test message from SIM800L.";
+
+void setup() {
+
   Serial.begin(9600);
-  
-  //Begin serial communication with Arduino and SIM800L
   sim800l.begin(9600);
 
+  pinMode(MQ4_PIN, INPUT);
+  pinMode(RED_LED, OUTPUT);
+  pinMode(GREEN_LED, OUTPUT);
+  pinMode(BLUE_LED, OUTPUT);
+  pinMode(FAN, OUTPUT);
 
   Serial.println("Initializing SIM800L...");
   if (!initializeSIM800L()) {
     Serial.println("Failed to initialize SIM800L module. Check wiring and power.");
-    while (true); // Stop execution if initialization fails
+    while (true)
+      ;  // Stop execution if initialization fails
   }
 
-  sim800l.println("AT"); //Once the handshake test is successful, it will back to OK
+  sim800l.println("AT");  //Once the handshake test is successful, it will back to OK
   updateSerial();
-  sim800l.println("AT+CSQ"); //Signal quality test, value range is 0-31 , 31 is the best
+  sim800l.println("AT+CSQ");  //Signal quality test, value range is 0-31 , 31 is the best
   updateSerial();
-  sim800l.println("AT+CCID"); //Read SIM information to confirm whether the SIM is plugged
+  sim800l.println("AT+CCID");  //Read SIM information to confirm whether the SIM is plugged
   updateSerial();
-  sim800l.println("AT+CREG?"); //Check whether it has registered in the network
+  sim800l.println("AT+CREG?");  //Check whether it has registered in the network
   updateSerial();
+
+  lcd.init();
+  lcd.backlight();
+
+  sim800l.begin(9600);
+  delay(500);
+
+  lcd.setCursor(0, 0);
+  lcd.print("Gas Detector");
+  delay(3000);
+  lcd.clear();
+
+  Serial.println("Enter 'test 0-500' to simulate gas level.");
 }
 
-void loop()
-{
+void loop() {
+
+  // Read real sensor value or test input from Serial Monitor
   updateSerial();
 
-   if (!smsSent) {
+  gasValue = analogRead(MQ4_PIN);  // Read actual MQ-4 sensor if no test input
+
+  if (Serial.available()) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+    if (input.startsWith("test ")) {
+      gasValue = input.substring(5).toInt();  // Extract gas value
+      Serial.print("Simulated Gas Level: ");
+      Serial.println(gasValue);
+    }
+  }
+
+  lcd.setCursor(0, 0);
+  lcd.print("Gas: ");
+  lcd.print(gasValue);
+  lcd.print("  ");
+
+  if (gasValue < 200) {
+    normalMode();
+  } else if (gasValue >= 200 && gasValue < dangerThreshold) {
+    warningMode();
+  } else {
+    dangerMode();
+  }
+
+  if (fanActive && (millis() - fanStartTime >= 5000)) {
+    digitalWrite(FAN, LOW);
+    fanActive = false;
+  }
+
+  delay(1000);
+}
+
+void normalMode() {
+  setLED(0, 1, 0);  // Green
+  lcd.setCursor(0, 1);
+  lcd.print("Status: Safe   ");
+  smsSent = false;
+}
+
+void warningMode() {
+  setLED(0, 0, 1);  // blue
+  lcd.setCursor(0, 1);
+  lcd.print("Status: Warning ");
+}
+
+void dangerMode() {
+  setLED(1, 0, 0);  // Red
+  lcd.setCursor(0, 1);
+  lcd.print("Status: DANGER! ");
+
+  digitalWrite(FAN, HIGH);
+  fanActive = true;
+  fanStartTime = millis();
+
+  if (!smsSent) {
     Serial.println("Attempting to send SMS...");
     if (sendSMS(phoneNumber, message)) {
       Serial.println("SMS sent successfully!");
       smsSent = true;
     } else {
       Serial.println("Failed to send SMS. Check responses for details.");
-      delay(5000); // Wait 5 seconds before retrying
+      delay(5000);  // Wait 5 seconds before retrying
     }
   }
 }
 
+void setLED(bool r, bool g, bool b) {
+  digitalWrite(RED_LED, r);
+  digitalWrite(GREEN_LED, g);
+  digitalWrite(BLUE_LED, b);
+}
+
+
 bool initializeSIM800L() {
+
   if (!sendATCommand("AT", "OK", 5000)) {
     Serial.println("Error: SIM800L not responding to AT command.");
     return false;
@@ -73,7 +168,7 @@ bool sendSMS(String number, String text) {
   sim800l.print("AT+CMGS=\"");
   sim800l.print(number);
   sim800l.println("\"");
-  
+
   // Wait for the '>' prompt
   if (!waitForResponse(">", 5000)) {
     Serial.println("Error: No prompt received after AT+CMGS.");
@@ -82,7 +177,7 @@ bool sendSMS(String number, String text) {
 
   // Send the message
   sim800l.print(text);
-  sim800l.write(26); // Send Ctrl+Z to indicate end of message
+  sim800l.write(26);  // Send Ctrl+Z to indicate end of message
 
   // Wait for confirmation
   if (!waitForResponse("OK", 10000)) {
@@ -106,9 +201,9 @@ bool waitForResponse(String expectedResponse, unsigned long timeout) {
     if (sim800l.available()) {
       char c = sim800l.read();
       response += c;
-      Serial.print(c); // Print response for debugging
+      Serial.print(c);  // Print response for debugging
       if (response.indexOf(expectedResponse) != -1) {
-        return true; // Expected response found
+        return true;  // Expected response found
       }
     }
   }
@@ -117,15 +212,14 @@ bool waitForResponse(String expectedResponse, unsigned long timeout) {
   Serial.println(response);
   return false;
 }
-void updateSerial()
-{
+
+void updateSerial() {
   delay(500);
-  while (Serial.available()) 
-  {
-    sim800l.write(Serial.read());//Forward what Serial received to Software Serial Port
+  while (Serial.available()) {
+    sim800l.write(Serial.read());  //Forward what Serial received to Software Serial Port
   }
-  while(sim800l.available()) 
-  {
-    Serial.write(sim800l.read());//Forward what Software Serial received to Serial Port
+  while (sim800l.available()) {
+    Serial.write(sim800l.read());  //Forward what Software Serial received to Serial Port
   }
 }
+
