@@ -1,0 +1,131 @@
+#include <SoftwareSerial.h>
+
+//Create software serial object to communicate with SIM800L
+SoftwareSerial sim800l(3, 2); //SIM800L Tx & Rx is connected to Arduino #3 & #2
+
+const String phoneNumber = "+1234567890"; // Replace with the target phone number
+const String message = "Hello, this is a test message from SIM800L.";
+bool smsSent = false;
+
+void setup()
+{
+  //Begin serial communication with Arduino and Arduino IDE (Serial Monitor)
+  Serial.begin(9600);
+  
+  //Begin serial communication with Arduino and SIM800L
+  sim800l.begin(9600);
+
+
+  Serial.println("Initializing SIM800L...");
+  if (!initializeSIM800L()) {
+    Serial.println("Failed to initialize SIM800L module. Check wiring and power.");
+    while (true); // Stop execution if initialization fails
+  }
+
+  sim800l.println("AT"); //Once the handshake test is successful, it will back to OK
+  updateSerial();
+  sim800l.println("AT+CSQ"); //Signal quality test, value range is 0-31 , 31 is the best
+  updateSerial();
+  sim800l.println("AT+CCID"); //Read SIM information to confirm whether the SIM is plugged
+  updateSerial();
+  sim800l.println("AT+CREG?"); //Check whether it has registered in the network
+  updateSerial();
+}
+
+void loop()
+{
+  updateSerial();
+
+   if (!smsSent) {
+    Serial.println("Attempting to send SMS...");
+    if (sendSMS(phoneNumber, message)) {
+      Serial.println("SMS sent successfully!");
+      smsSent = true;
+    } else {
+      Serial.println("Failed to send SMS. Check responses for details.");
+      delay(5000); // Wait 5 seconds before retrying
+    }
+  }
+}
+
+bool initializeSIM800L() {
+  if (!sendATCommand("AT", "OK", 5000)) {
+    Serial.println("Error: SIM800L not responding to AT command.");
+    return false;
+  }
+
+  if (!sendATCommand("AT+CMGF=1", "OK", 5000)) {
+    Serial.println("Error: Failed to set SMS mode to text.");
+    return false;
+  }
+
+  if (!sendATCommand("AT+CSCS=\"GSM\"", "OK", 5000)) {
+    Serial.println("Error: Failed to set GSM character set.");
+    return false;
+  }
+
+  Serial.println("SIM800L initialized successfully.");
+  return true;
+}
+
+bool sendSMS(String number, String text) {
+  // Start SMS process
+  sim800l.print("AT+CMGS=\"");
+  sim800l.print(number);
+  sim800l.println("\"");
+  
+  // Wait for the '>' prompt
+  if (!waitForResponse(">", 5000)) {
+    Serial.println("Error: No prompt received after AT+CMGS.");
+    return false;
+  }
+
+  // Send the message
+  sim800l.print(text);
+  sim800l.write(26); // Send Ctrl+Z to indicate end of message
+
+  // Wait for confirmation
+  if (!waitForResponse("OK", 10000)) {
+    Serial.println("Error: SMS sending failed or timed out.");
+    return false;
+  }
+
+  return true;
+}
+
+bool sendATCommand(String command, String expectedResponse, unsigned long timeout) {
+  sim800l.println(command);
+  return waitForResponse(expectedResponse, timeout);
+}
+
+bool waitForResponse(String expectedResponse, unsigned long timeout) {
+  String response = "";
+  unsigned long startTime = millis();
+
+  while (millis() - startTime < timeout) {
+    if (sim800l.available()) {
+      char c = sim800l.read();
+      response += c;
+      Serial.print(c); // Print response for debugging
+      if (response.indexOf(expectedResponse) != -1) {
+        return true; // Expected response found
+      }
+    }
+  }
+
+  Serial.println("\nTimeout or unexpected response received:");
+  Serial.println(response);
+  return false;
+}
+void updateSerial()
+{
+  delay(500);
+  while (Serial.available()) 
+  {
+    sim800l.write(Serial.read());//Forward what Serial received to Software Serial Port
+  }
+  while(sim800l.available()) 
+  {
+    Serial.write(sim800l.read());//Forward what Software Serial received to Serial Port
+  }
+}
